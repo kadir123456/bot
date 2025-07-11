@@ -1,0 +1,7 @@
+python-binance
+pandas
+pandas-ta
+requests
+packaging
+Flask
+gunicorn

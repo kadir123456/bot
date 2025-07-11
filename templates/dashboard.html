@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KadirV2 Pro - Web Terminali</title>
+    <style>
+        :root {
+            --bg-color: #1a1b26;
+            --surface-color: #24283b;
+            --primary-color: #7aa2f7;
+            --text-color: #c0caf5;
+            --text-secondary: #a9b1d6;
+            --success-color: #9ece6a;
+            --danger-color: #f7768e;
+            --warning-color: #e0af68;
+            --border-color: #414868;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            font-size: 16px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background-color: var(--surface-color);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+        header a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            flex-grow: 1;
+            padding: 1.5rem;
+            gap: 1.5rem;
+        }
+        .left-panel, .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .left-panel {
+            flex: 1;
+            min-width: 300px;
+        }
+        .right-panel {
+            flex: 2;
+            min-width: 400px;
+        }
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+        .card-title {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--text-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.8rem;
+        }
+        button {
+            width: 100%;
+            padding: 0.8rem 1.2rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.2s;
+            margin-top: 0.5rem;
+        }
+        button:active { transform: scale(0.98); }
+        .btn-start { background-color: var(--success-color); color: #1a1b26; }
+        .btn-stop { background-color: var(--warning-color); color: #1a1b26; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-primary { background-color: var(--primary-color); color: #1a1b26; }
+        
+        .input-group { display: flex; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;}
+        .input-group label { flex-basis: 120px; color: var(--text-secondary); }
+        .input-group input {
+            flex-grow: 1;
+            padding: 8px 12px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-color);
+            min-width: 100px;
+        }
+        
+        .position-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.8rem 1rem; align-items: center;}
+        .position-grid .label { font-weight: bold; color: var(--text-secondary); }
+        .position-grid .value { font-family: 'SF Mono', monospace; }
+
+        #log-container {
+            background-color: #16161e;
+            border-radius: 8px;
+            padding: 1rem;
+            height: 40vh;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .symbol-selector { display: flex; flex-direction: column; gap: 0.8rem; }
+        .symbol-selector select, .symbol-selector input {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: var(--bg-color);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transition: background-color 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KadirV2 Pro Terminal</h1>
+            <a href="/logout">Çıkış Yap</a>
+        </header>
+
+        <main class="main-content">
+            <div class="left-panel">
+                <div class="card">
+                    <h3 class="card-title">Strateji Kontrolü</h3>
+                    <div class="status-indicator" style="margin-bottom: 1rem; justify-content: center;">
+                        <div id="status-dot"></div>
+                        <b id="status-text">Bilinmiyor</b>
+                    </div>
+                    <button class="btn-start" onclick="sendCommand('/start_bot')">Otomatik Stratejiyi Başlat</button>
+                    <button class="btn-stop" onclick="sendCommand('/stop_bot')">Otomatik Stratejiyi Durdur</button>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Canlı Ayarlar</h3>
+                    <div class="input-group">
+                        <label for="leverage">Kaldıraç:</label>
+                        <input type="number" id="leverage" value="10">
+                    </div>
+                    <div class="input-group">
+                        <label for="quantity">Miktar (USDT):</label>
+                        <input type="number" id="quantity" value="200">
+                    </div>
+                    <button class="btn-primary" onclick="updateSettings()">Ayarları Güncelle</button>
+                </div>
+                
+                <div class="card">
+                    <h3 class="card-title">Piyasa Seçimi</h3>
+                    <div class="symbol-selector">
+                        <input type="text" id="symbol-search" onkeyup="filterSymbols()" placeholder="Coin ara...">
+                        <select id="symbol-select" size="8"></select>
+                        <button class="btn-primary" onclick="updateSymbol()">Aktif Sembol Yap</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="card">
+                    <h3 class="card-title">Açık Pozisyon: <span id="pos-symbol-title" style="color: var(--primary-color);">YOK</span></h3>
+                    <div class="position-grid" id="position-panel">
+                        <div class="label">Büyüklük:</div><div class="value" id="pos-quantity">N/A</div>
+                        <div class="label">Giriş Fiyatı:</div><div class="value" id="pos-entry">N/A</div>
+                        <div class="label">Piyasa Fiyatı:</div><div class="value" id="pos-mark">N/A</div>
+                        <div class="label">Kâr/Zarar:</div><div class="value" id="pos-pnl">N/A</div>
+                        <div class="label">ROI:</div><div class="value" id="pos-roi">N/A</div>
+                        <div class="label">Stop Loss:</div><div class="value" id="pos-sl">N/A</div>
+                        <div class="label">Take Profit:</div><div class="value" id="pos-tp">N/A</div>
+                    </div>
+                    <button class="btn-danger" onclick="sendCommand('/close_position')" style="margin-top: 1rem;">Mevcut Pozisyonu Kapat</button>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">Canlı Loglar</h3>
+                    <div id="log-container"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const logContainer = document.getElementById('log-container');
+        const symbolSelect = document.getElementById('symbol-select');
+        const symbolSearch = document.getElementById('symbol-search');
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.getElementById('status-dot');
+
+        async function sendCommand(url, data = {}) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    alert(`Hata: ${errorData.message || 'Bilinmeyen bir hata oluştu.'}`);
+                }
+            } catch (error) {
+                console.error('Komut gönderilemedi:', error);
+                alert('Sunucuyla bağlantı kurulamadı.');
+            }
+        }
+
+        function updateSettings() {
+            const leverage = document.getElementById('leverage').value;
+            const quantity = document.getElementById('quantity').value;
+            sendCommand('/update_settings', { leverage: leverage, quantity_usd: quantity });
+        }
+
+        async function populateSymbols() {
+            try {
+                const response = await fetch('/get_all_symbols');
+                const data = await response.json();
+                if (data.symbols) {
+                    symbolSelect.innerHTML = '';
+                    data.symbols.forEach(symbol => {
+                        const option = document.createElement('option');
+                        option.value = symbol; option.textContent = symbol;
+                        symbolSelect.appendChild(option);
+                    });
+                }
+            } catch (error) { console.error("Semboller alınamadı:", error); }
+        }
+
+        function filterSymbols() {
+            const filter = symbolSearch.value.toUpperCase();
+            const options = symbolSelect.options;
+            for (let i = 0; i < options.length; i++) {
+                options[i].style.display = options[i].value.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+            }
+        }
+
+        function updateSymbol() {
+            const selectedSymbol = symbolSelect.value;
+            if (selectedSymbol) { sendCommand('/update_symbol', { symbol: selectedSymbol }); }
+            else { alert("Lütfen bir sembol seçin."); }
+        }
+
+        function fetchStatus() {
+            fetch('/get_status')
+                .then(response => response.ok ? response.json() : Promise.reject('Network response was not ok.'))
+                .then(data => {
+                    if (data.logs && data.logs.length > 0) {
+                        data.logs.forEach(line => {
+                            const logLine = document.createElement('div');
+                            logLine.textContent = line;
+                            logContainer.appendChild(logLine);
+                        });
+                        logContainer.scrollTop = logContainer.scrollHeight;
+                    }
+                    
+                    const isActive = data.bot_status;
+                    statusText.textContent = isActive ? 'ÇALIŞIYOR' : 'DURUYOR';
+                    statusDot.style.backgroundColor = isActive ? 'var(--success-color)' : 'var(--danger-color)';
+
+                    const posPanel = document.getElementById('position-panel');
+                    const posTitle = document.getElementById('pos-symbol-title');
+                    if (data.position && data.position.symbol) {
+                        posTitle.textContent = data.position.symbol;
+                        document.getElementById('pos-quantity').textContent = data.position.quantity;
+                        document.getElementById('pos-entry').textContent = data.position.entry_price;
+                        document.getElementById('pos-mark').textContent = data.position.mark_price;
+                        const pnlElement = document.getElementById('pos-pnl');
+                        const roiElement = document.getElementById('pos-roi');
+                        const pnlValue = parseFloat(data.position.pnl_usdt);
+                        pnlElement.textContent = `${data.position.pnl_usdt} USDT`;
+                        roiElement.textContent = `${data.position.roi_percent}%`;
+                        pnlElement.style.color = roiElement.style.color = pnlValue >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+                        document.getElementById('pos-sl').textContent = data.position.sl_price;
+                        document.getElementById('pos-tp').textContent = data.position.tp_price;
+                    } else {
+                        posTitle.textContent = 'YOK';
+                        Array.from(posPanel.getElementsByClassName('value')).forEach(el => {
+                            el.textContent = 'N/A';
+                            el.style.color = 'var(--text-color)';
+                        });
+                    }
+                })
+                .catch(error => console.error("Durum alınamadı:", error));
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            populateSymbols();
+            fetchStatus();
+            setInterval(fetchStatus, 3000);
+        });
+    </script>
+</body>
+</html>
