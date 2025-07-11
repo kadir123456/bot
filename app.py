@@ -6,11 +6,13 @@ from queue import Queue
 from flask import (Flask, flash, jsonify, redirect, render_template, request,
                    session, url_for)
 
+# Diğer Python dosyalarımızdan ilgili sınıfları ve fonksiyonları import ediyoruz
 from trading_bot import TradingBot
 
 # --- UYGULAMA KURULUMU ---
 app = Flask(__name__)
 # Bu anahtarı Render.com'da Environment Variable olarak ayarlayacaksınız
+# Web uygulamasının oturum (session) güvenliği için kullanılır
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'yerel_test_icin_rastgele_bir_anahtar_12345')
 
 # --- GÜVENLİK ---
@@ -22,7 +24,6 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 # Bu global değişkenler, web sunucusunun bot objesini ve loglarını hafızada tutmasını sağlar
 bot: TradingBot = None
 log_queue = Queue()
-bot_thread: threading.Thread = None
 
 def log_handler(message):
     """Bot motorundan gelen logları arayüz için sıraya (queue) alır."""
