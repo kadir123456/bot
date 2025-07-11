@@ -1,6 +1,7 @@
 setuptools
 python-binance
 pandas
+numpy<2.0
 pandas-ta
 requests
 packaging
