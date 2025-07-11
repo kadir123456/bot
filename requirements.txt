@@ -1,3 +1,4 @@
+setuptools
 python-binance
 pandas
 pandas-ta
