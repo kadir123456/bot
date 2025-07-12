@@ -8,6 +8,7 @@ from flask import (Flask, flash, jsonify, redirect, render_template, request,
 
 # Diğer Python dosyalarımızdan ilgili sınıfları ve fonksiyonları import ediyoruz
 from trading_bot import TradingBot
+import database
 
 # --- UYGULAMA KURULUMU ---
 app = Flask(__name__)
@@ -126,6 +127,22 @@ def update_symbol():
         return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "Sembol güncellenemedi."}), 400
 
+@app.route('/update_settings', methods=['POST'])
+def update_settings():
+    """Arayüzden gelen kaldıraç ve miktar ayarlarını günceller."""
+    if not session.get('logged_in'): return jsonify({"status": "error"}), 401
+    data = request.get_json()
+    if bot:
+        try:
+            leverage = int(data.get('leverage'))
+            quantity_usd = float(data.get('quantity_usd'))
+            bot.set_leverage(leverage, bot.active_symbol)
+            bot.set_quantity(quantity_usd)
+            return jsonify({"status": "success"})
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "Geçersiz değerler."}), 400
+    return jsonify({"status": "error", "message": "Bot aktif değil."}), 400
+
 @app.route('/manual_trade', methods=['POST'])
 def manual_trade():
     """Arayüzden gelen manuel işlem talebini işler."""
@@ -144,22 +161,6 @@ def close_position():
     if bot:
         threading.Thread(target=bot.close_current_position, args=(True,), daemon=True).start()
     return jsonify({"status": "success"})
-
-@app.route('/update_settings', methods=['POST'])
-def update_settings():
-    """Arayüzden gelen kaldıraç ve miktar ayarlarını günceller."""
-    if not session.get('logged_in'): return jsonify({"status": "error"}), 401
-    data = request.get_json()
-    if bot:
-        try:
-            leverage = int(data.get('leverage'))
-            quantity_usd = float(data.get('quantity_usd'))
-            bot.set_leverage(leverage, bot.active_symbol)
-            bot.set_quantity(quantity_usd)
-            return jsonify({"status": "success"})
-        except (ValueError, TypeError):
-            return jsonify({"status": "error", "message": "Geçersiz değerler."}), 400
-    return jsonify({"status": "error", "message": "Bot aktif değil."}), 400
 
 if __name__ == '__main__':
     # Bu kısım sadece yerel testler içindir. 
