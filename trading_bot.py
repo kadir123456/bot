@@ -14,15 +14,10 @@ import threading
 import math
 
 class TradingBot:
-    """
-    Web arayüzü ile kontrol edilen, sunucuda 7/24 çalışmak üzere tasarlanmış,
-    gelişmiş ticaret botu motoru.
-    """
     def __init__(self, log_callback: Optional[Callable] = None) -> None:
         self.log_callback = log_callback
         self.config = self._load_config()
         
-        # GÜVENLİK: API anahtarlarını ortam değişkenlerinden (sunucudan) oku
         api_key = os.environ.get('BINANCE_API_KEY')
         api_secret = os.environ.get('BINANCE_API_SECRET')
         
@@ -33,12 +28,10 @@ class TradingBot:
         self.is_testnet = 'testnet' in self.config['BINANCE']['api_url']
         self.client = Client(api_key, api_secret, testnet=self.is_testnet)
         
-        # Botun durumunu ve ayarlarını tutan değişkenler
         self.running: bool = True
         self.strategy_active: bool = False
         self.position_open: bool = False
         
-        # Ayarları config dosyasından yükle
         self.leverage = int(self.config['TRADING']['leverage'])
         self.quantity_usd = float(self.config['TRADING']['quantity_usd'])
         self.active_symbol = self.config['TRADING']['symbol']
@@ -47,47 +40,36 @@ class TradingBot:
         self.active_strategy_name = self.config['TRADING']['active_strategy']
         
         self._log("Bot objesi başarıyla oluşturuldu.")
-        # Anlık pozisyon verisi akışını başlat
-        threading.Thread(target=self._stream_position_data, daemon=True).start()
 
     def _load_config(self) -> configparser.ConfigParser:
-        """config.ini dosyasını yükler."""
         parser = configparser.ConfigParser()
         parser.read('config.ini', encoding='utf-8')
         return parser
 
     def _log(self, message: str) -> None:
-        """Log mesajlarını hem sunucu konsoluna yazar hem de web arayüzüne gönderir."""
         log_message = f"{time.strftime('%H:%M:%S')} - {message}"
-        print(log_message) # Sunucu logları için
+        print(log_message)
         if self.log_callback:
             self.log_callback(log_message)
 
     def get_all_usdt_symbols(self) -> List[str]:
-        """Binance Futures'taki tüm USDT paritelerinin listesini döndürür."""
         try:
             info = self.client.futures_exchange_info()
             symbols = [s['symbol'] for s in info['symbols'] if s['symbol'].endswith('USDT') and 'BUSD' not in s['symbol']]
             return sorted(symbols)
         except Exception as e:
-            self._log(f"HATA: Sembol listesi çekilemedi: {e}")
-            return []
+            self._log(f"HATA: Sembol listesi çekilemedi: {e}"); return []
 
     def update_active_symbol(self, new_symbol: str):
-        """Botun aktif olarak işlem yapacağı sembolü günceller."""
         if self.strategy_active:
-            self._log("UYARI: Strateji çalışırken sembol değiştirilemez. Lütfen önce stratejiyi durdurun.")
-            return
+            self._log("UYARI: Strateji çalışırken sembol değiştirilemez."); return
         self.active_symbol = new_symbol.upper()
         self._log(f"✅ Aktif sembol {self.active_symbol} olarak ayarlandı.")
 
     def get_current_position_data(self) -> Optional[dict]:
-        """Açık pozisyonun anlık verilerini arayüz için hazırlar."""
         try:
             all_positions = self.client.futures_account()['positions']
-            # Aktif sembole göre değil, herhangi bir açık pozisyonu bul
-            position = next((p for p in all_positions if float(p['positionAmt']) != 0), None)
-            
+            position = next((p for p in all_positions if float(p['positionAmt']) != 0 and p['symbol'] == self.active_symbol), None)
             if not position: return None
 
             tp_sl_orders = self.client.futures_get_open_orders(symbol=position['symbol'])
@@ -101,18 +83,15 @@ class TradingBot:
                 "mark_price": position['markPrice'], "pnl_usdt": f"{pnl:.2f}", "roi_percent": f"{roi:.2f}",
                 "sl_price": sl_order['stopPrice'] if sl_order else "N/A", "tp_price": tp_order['stopPrice'] if tp_order else "N/A",
             }
-        except Exception:
-            return None
+        except Exception: return None
 
     def get_active_strategy_signal(self, df: pd.DataFrame) -> tuple:
-        """Config'de seçili olan stratejiyi çalıştırır."""
         if self.active_strategy_name == 'Scalper':
             return strategy_scalper.get_signal(df, self.config['STRATEGY_Scalper'])
-        else: # Varsayılan: KadirV2
+        else:
             return strategy_kadir_v2.get_signal(df, self.config['STRATEGY_KadirV2'])
 
     def _get_market_data(self, symbol: str, timeframe: str) -> Optional[pd.DataFrame]:
-        """Binance'ten mum verilerini çeker ve hazırlar."""
         try:
             klines = self.client.futures_klines(symbol=symbol, interval=timeframe, limit=200)
             df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
@@ -123,19 +102,14 @@ class TradingBot:
             self._log(f"HATA: Piyasa verileri çekilemedi: {e}"); return None
 
     def calculate_quantity(self) -> Optional[float]:
-        """
-        İşlem miktarını, Binance'in minimum kurallarına göre güvenli bir şekilde hesaplar.
-        """
         symbol = self.active_symbol
         trade_usd = self.quantity_usd
-        
         try:
             price_info = self.client.futures_mark_price(symbol=symbol)
             current_price = float(price_info['markPrice'])
             
             if trade_usd < 5.1:
-                 self._log(f"UYARI: İşlem büyüklüğü ({trade_usd:.2f}$) çok düşük. Minimum ~5 USDT olmalıdır.")
-                 return None
+                 self._log(f"UYARI: İşlem büyüklüğü ({trade_usd:.2f}$) çok düşük. Minimum ~5 USDT olmalıdır."); return None
 
             quantity = trade_usd / current_price
             
@@ -145,19 +119,15 @@ class TradingBot:
             min_qty, step_size = 0.0, 0.1
             for f in symbol_info['filters']:
                 if f['filterType'] == 'LOT_SIZE':
-                    min_qty = float(f['minQty'])
-                    step_size = float(f['stepSize'])
-                    break
+                    min_qty = float(f['minQty']); step_size = float(f['stepSize']); break
             
             if quantity < min_qty:
-                self._log(f"UYARI: Hesaplanan miktar ({quantity:.4f}) bu coin için minimum ({min_qty})'dan daha az.")
-                return None
+                self._log(f"UYARI: Hesaplanan miktar ({quantity:.4f}) bu coin için minimum ({min_qty})'dan daha az."); return None
 
             precision = int(round(-math.log(step_size, 10), 0)) if step_size > 0 else 0
             return round(quantity, precision)
         except Exception as e:
-            self._log(f"HATA: Miktar hesaplanamadı: {e}")
-            return None
+            self._log(f"HATA: Miktar hesaplanamadı: {e}"); return None
             
     def open_position(self, signal: str, atr: float, quantity: float, manual: bool = False) -> None:
         symbol = self.active_symbol
