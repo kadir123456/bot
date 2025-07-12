@@ -1,14 +1,12 @@
 import os
 import threading
-import time
 from queue import Queue
 
 from flask import (Flask, flash, jsonify, redirect, render_template, request,
                    session, url_for)
 
-# Diğer Python dosyalarımızdan ilgili sınıfları ve fonksiyonları import ediyoruz
+# Diğer Python dosyalarımızdan ilgili sınıfı import ediyoruz
 from trading_bot import TradingBot
-import database
 
 # --- UYGULAMA KURULUMU ---
 app = Flask(__name__)
@@ -77,13 +75,13 @@ def start_bot():
     if not session.get('logged_in'): return jsonify({"status": "error", "message": "Yetkisiz"}), 401
     if bot and not bot.strategy_active:
         # Botun ana strateji döngüsünü ayrı bir thread'de başlatır
-        threading.Thread(target=bot.run_strategy, daemon=True).start()
+        bot.start_strategy_loop()
     return jsonify({"status": "success"})
 
 @app.route('/stop_bot', methods=['POST'])
 def stop_bot():
     """Arayüzden gelen 'Durdur' komutunu işler."""
-    if not session.get('logged_in'): return jsonify({"status": "error"}), 401
+    if not session.get('logged_in'): return jsonify({"status": "error", "message": "Yetkisiz"}), 401
     if bot:
         bot.stop_strategy_loop()
     return jsonify({"status": "success"})
