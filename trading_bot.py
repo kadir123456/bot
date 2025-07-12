@@ -85,6 +85,7 @@ class TradingBot:
         """Açık pozisyonun anlık verilerini arayüz için hazırlar."""
         try:
             all_positions = self.client.futures_account()['positions']
+            # Aktif sembole göre değil, herhangi bir açık pozisyonu bul
             position = next((p for p in all_positions if float(p['positionAmt']) != 0), None)
             
             if not position: return None
@@ -123,8 +124,7 @@ class TradingBot:
 
     def calculate_quantity(self) -> Optional[float]:
         """
-        İşlem miktarını, Binance'in minimum nosyonal değer ve minimum miktar 
-        kurallarına göre güvenli bir şekilde hesaplar.
+        İşlem miktarını, Binance'in minimum kurallarına göre güvenli bir şekilde hesaplar.
         """
         symbol = self.active_symbol
         trade_usd = self.quantity_usd
@@ -133,9 +133,8 @@ class TradingBot:
             price_info = self.client.futures_mark_price(symbol=symbol)
             current_price = float(price_info['markPrice'])
             
-            # 1. Nosyonal Değer Kontrolü
             if trade_usd < 5.1:
-                 self._log(f"UYARI: İşlem büyüklüğü ({trade_usd:.2f}$) çok düşük. Minimum ~5 USDT olmalıdır. 'quantity_usd' ayarını artırın.")
+                 self._log(f"UYARI: İşlem büyüklüğü ({trade_usd:.2f}$) çok düşük. Minimum ~5 USDT olmalıdır.")
                  return None
 
             quantity = trade_usd / current_price
@@ -143,7 +142,6 @@ class TradingBot:
             info = self.client.futures_exchange_info()
             symbol_info = next(item for item in info['symbols'] if item['symbol'] == symbol)
             
-            # 2. Minimum Miktar (minQty) ve Hassasiyet (Precision) Kontrolü
             min_qty, step_size = 0.0, 0.1
             for f in symbol_info['filters']:
                 if f['filterType'] == 'LOT_SIZE':
@@ -152,12 +150,11 @@ class TradingBot:
                     break
             
             if quantity < min_qty:
-                self._log(f"UYARI: Hesaplanan miktar ({quantity:.4f}) bu coin için minimum ({min_qty})'dan daha az. 'quantity_usd' ayarını artırın.")
+                self._log(f"UYARI: Hesaplanan miktar ({quantity:.4f}) bu coin için minimum ({min_qty})'dan daha az.")
                 return None
 
             precision = int(round(-math.log(step_size, 10), 0)) if step_size > 0 else 0
             return round(quantity, precision)
-
         except Exception as e:
             self._log(f"HATA: Miktar hesaplanamadı: {e}")
             return None
@@ -187,7 +184,7 @@ class TradingBot:
                 else:
                     tp_price = entry_price * (1 - self.fixed_roi_tp); sl_price = entry_price * (1 + sl_ratio)
                 self._log(f"Sabit %{self.fixed_roi_tp*100:.2f} ROI hedefine göre hedefler belirlendi.")
-            else: # ATR Modu
+            else:
                 strategy_config = self.config[f"STRATEGY_{self.active_strategy_name}"]
                 atr_multiplier_sl = float(strategy_config['atr_multiplier_sl'])
                 atr_multiplier_tp = float(strategy_config.get('atr_multiplier_tp', atr_multiplier_sl * 2))
@@ -336,8 +333,17 @@ class TradingBot:
             except Exception as e:
                 self._log(f"ANA DÖNGÜ HATASI: {type(e).__name__} - {e}")
                 time.sleep(60)
+        
         self._log("Otomatik strateji motoru durduruldu.")
     
+    def start_strategy_loop(self):
+        if not self.strategy_active:
+            self.strategy_active = True
+            threading.Thread(target=self.run_strategy, daemon=True).start()
+
     def stop_strategy_loop(self):
-        self._log("Strateji durduruluyor...")
+        self.strategy_active = False
+
+    def stop_all(self):
+        self.running = False
         self.strategy_active = False
